@@ -1,38 +1,37 @@
 const express = require("express");
 const app = express();
 
-// ====== REQUIRE & USE HELMET ======
+// ====== CONFIGURE HELMET WITH ALL SECURITY MIDDLEWARE ======
 const helmet = require("helmet");
+const ninetyDaysInSeconds = 90 * 24 * 60 * 60;
 
-// ====== USE HELMET'S HSTS MIDDLEWARE ======
-const ninetyDaysInSeconds = 90 * 24 * 60 * 60; // 90 days in seconds
 app.use(
-  helmet.hsts({
-    maxAge: ninetyDaysInSeconds,
-    force: true, // Enforces HTTPS even on the initial request
-  })
-);
-
-// ====== DISABLE DNS PREFETCHING ======
-app.use(helmet.dnsPrefetchControl()); // Disables DNS prefetching
-
-// ====== DISABLE CLIENT-SIDE CACHING ======
-app.use(helmet.noCache()); // Sets several anti-caching headers
-
-// ====== SET CONTENT SECURITY POLICY ======
-app.use(
-  helmet.contentSecurityPolicy({
-    directives: {
-      defaultSrc: ["'self'"], // Trust only your domain by default
-      scriptSrc: ["'self'", "trusted-cdn.com"], // Allow scripts from self and trusted CDN
+  helmet({
+    // Enabled by default in helmet() but we're configuring explicitly:
+    frameguard: { action: "deny" },
+    hsts: {
+      maxAge: ninetyDaysInSeconds,
+      force: true,
+      includeSubDomains: true,
     },
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "trusted-cdn.com"],
+        styleSrc: ["'self'"],
+        imgSrc: ["'self'"],
+        objectSrc: ["'none'"], // Prevents all plugin content (e.g., Flash)
+      },
+    },
+    noCache: true, // Enable noCache which isn't included by default
+    dnsPrefetchControl: { allow: false }, // Disable DNS prefetching
   })
 );
 
 module.exports = app;
 const api = require("./server.js");
 app.use(express.static("public"));
-app.disable("strict-transport-security");
+app.disable("strict-transport-security"); // Keep this disabled as we're using helmet's HSTS
 app.use("/_api", api);
 app.get("/", function (request, response) {
   response.sendFile(__dirname + "/views/index.html");
